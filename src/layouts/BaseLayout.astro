@@ -1,0 +1,93 @@
+---
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+interface Props { title: string }
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} · 每日美国口语</title>
+</head>
+<body>
+  <header class="topbar">
+    <a href={BASE + '/'} class="brand">每日美国口语</a>
+    <nav>
+      <a href={BASE + '/'}>今日</a>
+      <a href={BASE + '/review/'}>复习</a>
+    </nav>
+  </header>
+  <main>
+    <slot />
+  </main>
+  <footer>
+    <p>素材仅存元数据与讲义，版权归原作者所有 · 学习数据存于本机 localStorage</p>
+  </footer>
+  <style is:global>
+    :root {
+      --bg: #0f1115;
+      --panel: #181c23;
+      --panel-2: #1f2530;
+      --border: #2a3140;
+      --text: #e6e9ef;
+      --muted: #9aa3b2;
+      --accent: #4f8cff;
+      --accent-2: #37c98b;
+      --danger: #e5534b;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px; border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .brand { font-weight: 700; font-size: 18px; color: var(--text); }
+    .topbar nav { display: flex; gap: 20px; }
+    .topbar nav a { color: var(--muted); font-size: 15px; }
+    .topbar nav a:hover { color: var(--text); text-decoration: none; }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+    footer {
+      max-width: 860px; margin: 0 auto; padding: 20px;
+      color: var(--muted); font-size: 13px; border-top: 1px solid var(--border);
+    }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px;
+    }
+    .tag {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 13px; margin-right: 8px;
+    }
+    h1, h2, h3 { line-height: 1.4; }
+    h2 { font-size: 20px; margin: 28px 0 14px; }
+    .btn {
+      display: inline-block; padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--panel-2);
+      color: var(--text); cursor: pointer; font-size: 14px;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.collected { background: var(--accent-2); border-color: var(--accent-2); color: #06281a; }
+    .en { font-family: Georgia, "Times New Roman", serif; }
+    .muted { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+  </style>
+</body>
+</html>

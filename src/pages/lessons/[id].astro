@@ -1,0 +1,156 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const lessons = await getCollection('lessons');
+  return lessons.map((lesson) => ({ params: { id: lesson.id }, props: { lesson } }));
+}
+
+const { lesson } = Astro.props;
+const { Content } = await render(lesson);
+const d = lesson.data;
+
+const sections = [
+  { key: 'keywords', label: 'Keyword · 关键词', hint: '单个词的口语用法' },
+  { key: 'phrases', label: 'Phrase · 短语/搭配', hint: '多词固定搭配，字面义 ≈ 实际义' },
+  { key: 'idioms', label: 'Idiom · 习语', hint: '字面直译会闹笑话' },
+  { key: 'grammar', label: 'Grammar Point · 语法点', hint: '影响地道度的口语语法' },
+] as const;
+---
+<BaseLayout title={d.title}>
+  <meta name="lesson-id" content={lesson.id} />
+  <nav class="crumbs"><a href={import.meta.env.BASE_URL.replace(/\/$/, '') + '/'}>← 返回首页</a></nav>
+
+  <section class="card">
+    <p class="muted">{d.date} · <span class="tag">{d.domain}</span> <span class="tag">{d.subScenario}</span></p>
+    <h1>{d.title}</h1>
+    <p class="muted">
+      素材源：<a href={d.material.url} target="_blank">{d.material.source} ↗</a>
+      {d.material.videoUrl && <span> · <a href={d.material.videoUrl} target="_blank">视频直链 ↗</a></span>}
+      {!d.material.videoUrl && <span> · 视频直链待提供</span>}
+    </p>
+  </section>
+
+  <article class="card prose">
+    <Content />
+  </article>
+
+  {sections.map(({ key, label, hint }) => d[key].length > 0 && (
+    <section>
+      <h2>{label} <span class="muted hint">— {hint}</span></h2>
+      {d[key].map((p: any) => (
+        <div class="card point" data-en={p.en}>
+          <div class="point-head">
+            <span class="en point-en">{p.en}</span>
+            <button class="btn collect-btn" data-en={p.en} data-meaning={p.meaning}>收藏</button>
+          </div>
+          <p class="gloss muted">{p.gloss}</p>
+          <p>{p.meaning}</p>
+          {p.note && <p class="muted note">{p.note}</p>}
+          <blockquote>{p.example}</blockquote>
+        </div>
+      ))}
+    </section>
+  ))}
+
+  {d.quiz.length > 0 && (
+    <section id="quiz-section">
+      <h2>每日小测 <span class="muted hint">— 5 题，做完自动算分</span></h2>
+      <div class="card" id="quiz" data-quiz={JSON.stringify(d.quiz)}></div>
+      <div id="quiz-result" class="card" hidden></div>
+    </section>
+  )}
+</BaseLayout>
+
+<script>
+  import { store } from '../../lib/store';
+
+  // 收藏：加入生词收藏 + SRS 队列（box 0，当天到期）
+  document.querySelectorAll('.collect-btn').forEach((btn) => {
+    const en = (btn as HTMLElement).dataset.en!;
+    if (store.isCollected(en)) {
+      btn.textContent = '已收藏';
+      btn.classList.add('collected');
+    }
+    btn.addEventListener('click', () => {
+      if (store.isCollected(en)) return;
+      const meaning = (btn as HTMLElement).dataset.meaning || '';
+      const lessonId = document.querySelector('meta[name="lesson-id"]')?.getAttribute('content') || '';
+      store.collect(en, meaning, lessonId);
+      store.enqueue(en);
+      btn.textContent = '已收藏 ✓';
+      btn.classList.add('collected');
+    });
+  });
+
+  // 每日小测：逐题作答，即时反馈
+  const quizEl = document.getElementById('quiz');
+  const resultEl = document.getElementById('quiz-result');
+  if (quizEl && resultEl) {
+    const quiz = JSON.parse(quizEl.dataset.quiz || '[]');
+    let correct = 0;
+    quiz.forEach((item: any, qi: number) => {
+      const q = document.createElement('div');
+      q.className = 'quiz-q';
+      q.innerHTML = `<p class="q-title en">${qi + 1}. ${item.question}</p>`;
+      item.options.forEach((opt: string, oi: number) => {
+        const b = document.createElement('button');
+        b.className = 'btn opt';
+        b.textContent = opt;
+        b.addEventListener('click', () => {
+          if (q.querySelector('.opt.answered')) return;
+          const right = oi === item.answer;
+          if (right) correct++;
+          b.classList.add('answered', right ? 'correct' : 'wrong');
+          const expl = document.createElement('p');
+          expl.className = right ? 'expl ok' : 'expl bad';
+          expl.textContent = (right ? '✓ ' : '✗ ') + item.explanation;
+          q.appendChild(expl);
+          // 错题：把题干中暴露的核心表达压入复习队列
+          if (!right) {
+            const target = item.options[item.answer];
+            store.markWeak(target);
+          }
+        });
+        q.appendChild(b);
+      });
+      quizEl.appendChild(q);
+    });
+    // 完成检测
+    const checkDone = new MutationObserver(() => {
+      const answered = quizEl.querySelectorAll('.quiz-q').length;
+      const explCount = quizEl.querySelectorAll('.expl').length;
+      if (explCount === answered) {
+        resultEl.hidden = false;
+        resultEl.innerHTML = `<h3>小测完成：${correct} / ${quiz.length}</h3><p class="muted">错题对应表达已加入复习队列，明天到期。</p>`;
+      }
+    });
+    checkDone.observe(quizEl, { childList: true, subtree: true });
+  }
+</script>
+
+<style>
+  .crumbs { margin-bottom: 16px; }
+  .hint { font-size: 14px; font-weight: 400; }
+  .prose :global(h2) { margin-top: 10px; }
+  .prose :global(blockquote) {
+    margin: 8px 0; padding: 8px 14px;
+    border-left: 3px solid var(--accent); background: var(--panel-2);
+    border-radius: 0 8px 8px 0;
+  }
+  .point-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .point-en { font-size: 19px; font-weight: 600; }
+  .gloss { margin: 2px 0 8px; font-style: italic; font-size: 14px; }
+  .note { font-size: 14px; }
+  .point blockquote { margin: 8px 0 2px; padding: 8px 14px; border-left: 3px solid var(--accent-2); background: var(--panel-2); border-radius: 0 8px 8px 0; }
+  .quiz-q { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .quiz-q:last-child { border-bottom: none; }
+  .q-title { margin: 0 0 10px; }
+  .opt { margin: 0 8px 8px 0; }
+  .opt.answered.correct { border-color: var(--accent-2); color: var(--accent-2); }
+  .opt.answered.wrong { border-color: var(--danger); color: var(--danger); text-decoration: line-through; }
+  .expl { margin: 8px 0 0; font-size: 14px; }
+  .expl.ok { color: var(--accent-2); }
+  .expl.bad { color: var(--danger); }
+</style>
